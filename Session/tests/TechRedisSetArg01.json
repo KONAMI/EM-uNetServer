@@ -1,0 +1,7 @@
+{
+      "role"       : "server"
+    , "mode"       : "set"
+    , "k"          : "foo"
+    , "v"          : "bar"
+    , "ttlSec"     : 100000
+}

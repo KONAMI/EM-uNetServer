@@ -1,0 +1,128 @@
+##[ 変数定義 ]###############################################################
+
+custom:
+  config: ${file(serverlessConfig.yml)}
+  env:
+    LAMBDA_ENV: ${opt:stage}
+    LAMBDA_SERVICE: ${file(serverlessConfig.yml):service}
+    LAMBDA_ROLE: "server"
+    S3_BUCKET: ${file(serverlessConfig.yml):s3Bucket}
+    REDIS_API_URL: ${file(serverlessConfig.yml):redisApiUrl}
+    REDIS_API_KEY: ${file(serverlessConfig.yml):redisApiKey}
+
+##[ 全般、IAM, APIKeyの設定 ]################################################
+
+service: ${self:custom.config.service} 
+frameworkVersion: ">=1.27.0 <2.0.0"
+provider:
+  name: aws
+  runtime: dotnetcore2.0
+  memorySize: 1024
+  timeout: 60
+  stage: ${opt:stage}
+  region: ap-northeast-1
+  apiKeys:
+    - ${self:service}PublicAccess-${opt:stage}
+  usagePlan:
+    quota:
+      limit: 1000000
+      period: MONTH
+    throttle:
+      burstLimit: 2000
+      rateLimit: 100
+# 記述位置/クオートルールがバージョン違いで微妙にことなり適用されないことあるので超注意
+# 怪しいと思ったらIAMコンソールから確認奨励
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource:
+        - "*"
+    - Effect: Allow
+      Action:
+        - cloudwatch:*
+      Resource:
+        - "*"
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource:
+        - "*"
+
+##[ Lambda + APIGateway 設定 ]###############################################
+
+package:
+  artifact: publish.zip
+functions:
+  TechAuth:
+    handler: TechApi::kde.tech.LambdaAuth::Handler
+    environment: ${self:custom.env}
+    events:
+      - http:
+          path: auth
+          method: post
+          private: true
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+            template:
+              application/json: '$input.json(''$'')'
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: '$input.json(''$'')'
+            statusCodes:
+              200:
+                pattern: '' # Default response method
+                template: '$input.path(''$'')'
+                headers:
+                  Content-Type: "'application/json'"
+  TechStore:
+    handler: TechApi::kde.tech.LambdaStore::Handler
+    environment: ${self:custom.env}
+    events:
+      - http:
+          path: store
+          method: post
+          private: true
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+            template:
+              application/json: '$input.json(''$'')'
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: '$input.json(''$'')'
+            statusCodes:
+              200:
+                pattern: '' # Default response method
+                template: '$input.path(''$'')'
+                headers:
+                  Content-Type: "'application/json'"
+  TechInfo:
+    handler: TechApi::kde.tech.LambdaInfo::Handler
+    environment: ${self:custom.env}
+    events:
+      - http:
+          path: info
+          method: post
+          private: false
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+            template:
+              application/json: '$input.json(''$'')'
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: '$input.json(''$'')'
+            statusCodes:
+              200:
+                pattern: '' # Default response method
+                template: '$input.path(''$'')'
+                headers:
+                  Content-Type: "'application/json'"
+                  
+#############################################################################
+

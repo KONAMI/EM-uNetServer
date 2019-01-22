@@ -1,0 +1,92 @@
+##[ 変数定義 ]###############################################################
+
+custom:
+  config: ${file(serverlessConfig.yml)}
+  redis: ${file(serverlessRedisConfig.yml)}
+  env:
+    LAMBDA_ENV: ${opt:stage}
+    LAMBDA_SERVICE: ${file(serverlessConfig.yml):service}
+    LAMBDA_ROLE: "server"
+    REDIS_URI: ${file(serverlessRedisConfig.yml):host}:${file(serverlessRedisConfig.yml):port}
+  vpc: ${file(serverlessVpcConfig.yml)}
+    
+##[ 全般、IAM, APIKeyの設定 ]################################################
+
+service: ${self:custom.config.service} 
+frameworkVersion: ">=1.27.0 <2.0.0"
+provider:
+  name: aws
+  runtime: dotnetcore2.0
+  memorySize: 1024
+  timeout: 60
+  stage: ${opt:stage}
+  region: ap-northeast-1  
+  apiKeys:
+    - ${self:service}PublicAccess-${opt:stage}
+  usagePlan:
+    quota:
+      limit: 1000000
+      period: MONTH
+    throttle:
+      burstLimit: 2000
+      rateLimit: 100
+  vpc:
+    securityGroupIds:
+      - ${self:custom.vpc.sg}
+    subnetIds:
+      - ${self:custom.vpc.subnetId}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource:
+        - "*"
+    - Effect: Allow
+      Action:
+        - cloudwatch:*
+      Resource:
+        - "*"
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource:
+        - "*"
+    - Effect: Allow
+      Action:
+        - ec2:CreateNetworkInterface
+        - ec2:DescribeNetworkInterfaces
+        - ec2:DeleteNetworkInterface
+      Resource:
+        - "*"
+
+##[ Lambda + APIGateway 設定 ]###############################################
+
+package:
+  artifact: publish.zip
+functions:
+  TechRedis:
+    handler: TechRedis::kde.tech.LambdaRedis::Handler
+    environment: ${self:custom.env}
+    events:
+      - http:
+          path: redis
+          method: post
+          private: true
+          integration: lambda
+          request:
+            passThrough: WHEN_NO_MATCH
+            template:
+              application/json: '$input.json(''$'')'
+          response:
+            headers:
+              Content-Type: "'application/json'"
+            template: '$input.json(''$'')'
+            statusCodes:
+              200:
+                pattern: '' # Default response method
+                template: '$input.path(''$'')'
+                headers:
+                  Content-Type: "'application/json'"
+                  
+#############################################################################
+

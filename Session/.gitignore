@@ -1,0 +1,35 @@
+# System
+.git/
+.DS_Store
+
+# 環境ファイル
+Makefile.env
+
+# 中間ファイル
+bin/
+obj/
+arc/
+publish.zip
+
+# ServerlessFramework
+.serverless/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+config.tfvars
+terraform.tfvars
+tfplan
+vendor/bundle
+.bundle/
+ClusterId.txt
+ClusterNodeId.txt
+
+# 動的生成
+serverlessConfig.yml
+serverlessVpcConfig.yml
+serverlessRedisConfig.yml
+EMNS-SessionInfo*.json
+apiKey.txt
+apiList.txt
